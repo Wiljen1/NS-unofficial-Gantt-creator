@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+
+<!-- Head -->
+
+<head>
+  <!-- Meta data -->
+  <meta charset="utf-8">
+  <title>jsGantt Improved</title>
+  <meta name="description" content="FREE javascript gantt - jsGantt Improved HTML, CSS and AJAX only">
+  <meta name="keywords" content="jsgantt-improved free javascript gantt-chart html css ajax">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    .row [type=checkbox] {
+      margin-right: 10px
+    }
+
+    .row {
+      width: 100%
+    }
+
+    .space {
+      display: inline-block;
+      width: 30px;
+    }
+
+    .deadline-line {
+      position: absolute;
+      top: 0;
+      width: 1px;
+      height: 22px;
+      background: #777777;
+    }
+    @media print {
+      .no-print {
+        display: none;
+      }
+    }
+    
+    /* hide all functions */
+    .function {
+      display: none;
+    }
+  
+  </style>
+  <!-- External resources -->
+  <!-- jQuery + Ajax [required by Bootstrap] -->
+  <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js"
+    integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n"
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js"
+    integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb"
+    crossorigin="anonymous"></script>
+  <!-- Required by smooth scrolling -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+  <!-- Bootstrap v4.0.0 Alpha -->
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous" />
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js"
+    integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn"
+    crossorigin="anonymous"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Cookie|Satisfy|Kelly+Slab|Overlock" rel="stylesheet">
+
+  <!-- jsGanttImproved App -->
+  <link href="jsgantt.css" rel="stylesheet" type="text/css" />
+  <script src="jsgantt.js" type="text/javascript"></script>
+</head>
+
+<!-- Content -->
+<table>
+  <tr>
+    <th colspan="2"><h3>Unofficial NS Gantt Chart Creator</h3></th>
+  </tr>
+  <tr>
+    <td>Created by Wiljan Hooijer</td>
+    <td style="text-align:right">
+      <a href="https://www.linkedin.com/in/wiljanhooijer/" target="_blank" style="color: green; font-weight: bold; font-size: 17px;">LinkedIn</a>
+      <a href="https://www.dropbox.com/s/6woc9cmhftia8z4/Prepare%20the%20CSV%20file.pdf?dl=0" target="_blank" style="color: red; font-weight: bold; font-size: 18px;">Prepare NS</a>
+      <a href="https://www.dropbox.com/s/8ghcuahr1pxlxyd/How%20to%20use%20the%20gantt%20chart%20creator.pdf?dl=0" target="_blank" style="color: blue; font-weight: bold; font-size: 18px;">How to use this tool</a>
+    </td>
+</tr>
+</table>
+<br>
+
+
+
+<body data-spy="scroll" data-target="#my-navbar-nav" style="padding: 30px;">
+<h5 class="row">Parse CSV file</h5> 
+<!-- parser script -->
+<input type="file" id="csv-file" accept=".csv">
+	<button onclick="parseCsv()">Parse CSV</button>
+	<button onclick="convertToJson()">Convert to JSON</button>
+	<div id="headers"></div>
+
+
+<script>
+		var csvData = [];
+		var jsonData = [];
+
+		function parseCsv() {
+			// Get the input file
+			var input = document.getElementById('csv-file');
+			var file = input.files[0];
+
+			// Read the file as text
+			var reader = new FileReader();
+			reader.readAsText(file);
+
+			// Parse the CSV file
+			reader.onload = function(event) {
+				var csv = event.target.result;
+				var lines = csv.split('\n');
+				var headers = lines[0].split(',');
+
+				// Rename headers as needed
+				headers = headers.map(function(header) {
+					switch (header) {
+						case 'Internal ID':
+							return 'pID';
+						case 'Name':
+							return 'pName';
+						case 'Resource Name':
+							return 'pRes';
+						case 'Start Date':
+							return 'pStart';
+						case 'End Date':
+							return 'pEnd';
+						case 'Cost':
+							return 'pCost';
+						case 'Parent Task':
+							return 'pParent';
+						case 'Percent Work Complete':
+							return 'pComp';
+						case 'Predecessor':
+							return 'pDepend';
+						case 'Status':
+							return 'pNotes';
+						default:
+							return header;
+					}
+				});
+
+// Store CSV data with renamed headers
+csvData = [];
+for (var i = 1; i < lines.length; i++) {
+  var values = lines[i].split(',');
+  var item = {};
+  for (var j = 0; j < headers.length; j++) {
+    if (headers[j] === 'pStart' || headers[j] === 'pEnd') {
+      // Convert date format
+      var parts = values[j].split('/');
+      item[headers[j]] = parts[2] + '/' + parts[1] + '/' + parts[0];
+    } else if (headers[j] === 'pComp') {
+      // Remove the % symbol and convert to a number between 0 and 100
+      var compValue = values[j].replace('%', '');
+      if (compValue === '') {
+        // Handle empty values
+        item[headers[j]] = null;
+      } else {
+        item[headers[j]] = parseFloat(compValue);
+        if (item[headers[j]] < 0.0) {
+          item[headers[j]] = 0.0;
+        } else if (item[headers[j]] > 100.0) {
+          item[headers[j]] = 100.0;
+        }
+      }
+    } else if (headers[j] === 'pDepend') {
+      if (values[j] !== '') {
+        item['pGroup'] = 0;
+      } else {
+        item['pGroup'] = 1;
+      }
+      item[headers[j]] = values[j];
+    } else if (headers[j] === 'pName') {
+      // Keep only the information after the last ':' character
+      var lastIndex = values[j].lastIndexOf(':');
+      if (lastIndex !== -1) {
+        item[headers[j]] = values[j].substring(lastIndex + 1);
+      } else {
+        item[headers[j]] = values[j];
+      }
+    } else {
+      item[headers[j]] = values[j];
+    }
+  }
+  csvData.push(item);
+}
+
+				// Display the headers
+				var headersDiv = document.getElementById('headers');
+				headersDiv.innerHTML = '';
+				for (var i = 0; i < headers.length; i++) {
+					headersDiv.innerHTML += headers[i] + '<br>';
+				}
+			};
+			reader.onerror = function() {
+				alert('Unable to read ' + file.fileName);
+			};
+		}
+
+		function convertToJson() {
+			// Convert CSV data to JSON with desired format
+			jsonData = csvData.map(function(item) {
+				return {
+					"pID": item.pID,
+					"pName": item.pName,
+					"pStart": item.pStart,
+					"pEnd": item.pEnd,
+					"pClass": "gtaskblue",
+					"pLink": "",
+					"pMile": 0,
+					"pRes": item.pRes,
+					"pCost": item.pCost,
+					"pComp": item.pComp,
+					"pGroup": item.pGroup,
+				"pParent": item.pParent,
+				"pOpen": 1,
+				"pDepend": item.pDepend,
+				"pNotes": item.pNotes,
+				"pCaption": ""
+			};
+		});
+
+		// Save JSON data to file with timestamp in name
+var jsonStr = JSON.stringify(jsonData, null, 2);
+var blob = new Blob([jsonStr], {type: "application/json"});
+var timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\.\d{3}/, '');
+var filename = 'ns' + timestamp + '.json';
+var url = URL.createObjectURL(blob);
+var a = document.createElement('a');
+a.href = url;
+a.download = filename;
+a.click();
+	}
+	</script>
+<!-- end of parser script -->
+
+<br>
+<div class="no-print">
+  <div class="row">
+    <h5 class="row">Hide and Show Properties </h5>
+
+    <div class="row">
+      <span>
+        <label for="vShowRes">Responsible</label>
+        <input type="checkbox" id="vShowRes" onchange="start(event)" />
+      </span>
+
+      <span>
+        <label for="vShowDur">Duration</label>
+        <input type="checkbox" id="vShowDur" checked onchange="start(event)" />
+      </span>
+
+      <span>
+        <label for="vShowCost">Cost</label>
+        <input type="checkbox" id="vShowCost" onchange="start(event)" />
+      </span>
+
+
+      <span>
+        <label for="vShowComp">Completion</label>
+        <input type="checkbox" id="vShowComp" checked onchange="start(event)" />
+      </span>
+
+      <span>
+        <label for="vShowTaskInfoLink">tooltip</label>
+        <input type="checkbox" id="vShowTaskInfoLink" checked onchange="start(event)" />
+      </span>
+
+      <span>
+        <label for="vShowEndWeekDate">date for the last day of the week</label>
+        <input type="checkbox" id="vShowEndWeekDate" checked onchange="start(event)" />
+      </span>
+    </div>
+
+    <span>
+      <label for="vShowStartDate">StartDate</label>
+      <input type="checkbox" id="vShowStartDate" checked onchange="start(event)" />
+    </span>
+
+    <span>
+      <label for="vShowEndDate">EndDate</label>
+      <input type="checkbox" id="vShowEndDate" checked onchange="start(event)" />
+    </span>
+
+    <span>
+      <label for="vShowPlanStartDate">Planned StartDate</label>
+      <input type="checkbox" id="vShowPlanStartDate" onchange="start(event)" />
+    </span>
+
+    <span>
+      <label for="vShowPlanEndDate">Planned EndDate</label>
+      <input type="checkbox" id="vShowPlanEndDate" onchange="start(event)" />
+    </span>
+  </div>
+<br />
+    <span>
+      <label class="function">Custom elements (black lines for deadlines):</label>
+      <input class="function" type="checkbox" id="customElements" checked onchange="start(event)" />
+      <div class="space"></div>
+      <label>Min Date:</label>
+      <input type="date" id="vMinDate" onchange="start(event)" />
+      <div class="space"></div>
+      <label>Max Date:</label>
+      <input type="date" id="vMaxDate" onchange="start(event)" />
+    </span>
+
+    <br />
+<br />
+<input type="file" id="json-file">
+<button id="load-button">Load JSON Data</button>
+<p id="file-url"></p>
+
+<script>
+  const fileInput = document.getElementById('json-file');
+  const loadButton = document.getElementById('load-button');
+  const fileUrl = document.getElementById('file-url');
+
+  loadButton.addEventListener('click', () => {
+    const file = fileInput.files[0];
+    if (file) {
+      const fileUrlObject = URL.createObjectURL(file);
+      fileUrl.innerHTML = `Copy the complete red link into the box below: <span style="color: red">${fileUrlObject}</span>`;
+    }
+  });
+</script>
+
+
+<br />
+  Paste URL here:
+  <input id="dataurl" onchange="start(event)" value="paste red URL here" type="text">
+  <br />
+
+  <input class="function" id="delay" onchange="start(event)" value="150" type="number">
+
+   <input class="function" id="useSingleCell" onchange="start(event)" value="100000" type="number">
+
+ 
+  <br />
+  <br>
+  
+
+   </div>
+    <div id="embedded-Gantt">
+    </div>
+  
+    
+<select id="print_page_size">
+    <option value="210,297">A4 Portrait</option>
+    <option value="297,210">A4 Landscape</option>
+    <option value="297,420">A3 Portrait</option>
+    <option value="420,297">A3 Landscape</option>
+    <option value="420,594">A2 Portrait</option>
+    <option value="594,420">A2 Landscape</option>
+    <option value="594,841">A1 Portrait</option>
+    <option value="841,594">A1 Landscape</option>
+    <option value="841,1189">A0 Portrait</option>
+    <option value="1189,841">A0 Landscape</option>
+</select>
+<button onclick="printChart()">Print</button>
+
+<button onclick="captureAndSendEmail()">Capture and Email</button>
+
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<script>
+  function captureAndSendEmail() {
+    html2canvas(document.body).then(function(canvas) {
+      // Convert the canvas to a data URL
+      const dataUrl = canvas.toDataURL('image/png');
+
+      // Attach the data URL to the email link
+      const mailtoLink = `mailto:?attachment=${encodeURIComponent(dataUrl)}`;
+      window.location.href = mailtoLink;
+    });
+  }
+</script>
+
+
+  
+  
+        <br>
+       <span class="function">
+  <button onclick="printTasksInConsole()">Print data in console</button>
+</span>
+<br />
+
+<select id="lang" class="function" onchange="start(event)">
+
+  <option value='cn'>Chinese (cn)</option>
+  <option value='cs'>Czech (cs)</option>
+  <option value='nl'>Dutch (Standard)</option>
+  <option value='en' selected>English (en)</option>
+  <option value='fr'>French (fr)</option>
+  <option value='de'>German (de)</option>
+  <option value='hu'>Hungarian (hu)</option>
+  <option value='id'>Indonesian (id)</option>
+  <option value='it'>Italian (it)</option>
+  <option value='ja'>Japanese (ja)</option>
+  <option value='pt'>Portuguese (pt)</option>
+  <option value='ru'>Russian (ru)</option>
+  <option value='es'>Spanish (es)</option>
+  <option value='sv'>Swedish (sv)</option>
+  <option value='tr'>Turkish (tr)</option>
+</select>
+<span class="function">
+  <label>Configure debug and see in console:</label>
+  <input type="checkbox" id="debug" onchange="start(event)" />
+</span>
+<br />
+<span class="function">
+  <label>Configure editable:</label>
+  <input type="checkbox"  id="editable" checked onchange="start(event)" />
+</span>
+<br />
+<span class="function">
+  <label>Configure sortTasks:</label>
+  <input type="checkbox"  id="sort" onchange="start(event)" />
+</span>
+<span class="function">
+  <label>Show Weekenddays:</label>
+  <input type="checkbox" id="vShowWeekends" onchange="start(event)" />
+</span>
+<br />
+<!--  <span>-->
+<label class="function">Height:</label>
+<input class="function" type="text" id="vTotalHeight" fl onchange="start(event)" />
+
+
+<br />
+<span class="function">
+  <label>Custom Tooltip Template:</label><br />
+  <textarea id="tooltiptemplate"
+    onchange="start(event)"><div>Nome: {{pName}}</div> <div>{{Lang:pStart}}: {{pStart}}</div></textarea>
+  <div class="space"></div>
+  <label>Dynamic tooltip:</label>
+  <input type="checkbox" id="dynamicTooltip" checked onchange="start(event)" />
+</span>
+<br /><br />
+<span class="function">
+<label>Custom columns order:</label>
+<input type="text" id="vColumnOrder" onchange="start(event)" />
+
+  <!-- value="vShowDur,vShowComp,vShowRes,vShowStartDate,vShowEndDate,vShowPlanStartDate,vShowPlanEndDate,vShowCost,vAdditionalHeaders,vShowAddEntries"  -->
+</span>
+<br />
+<span class="function">
+  <button onclick="clearTasks()">Clear all tasks</button>
+</span>
+<br>
+
+<br /><br />
+ 
+
+</body>
+<script type="text/javascript" src="index.js"></script>
+
+
+
+</html>
